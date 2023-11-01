@@ -1,0 +1,178 @@
+---
+title: "Final_capstone"
+author: "Mehwish Younus"
+date: "2023-10-31"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(gganimate)
+library(ggcorrplot)
+library(plotly)
+library(maps)
+```
+
+## DATA IMPORT
+
+For my capstone project, I selected a dataset from <https://www.kaggle.com/>. It includes data for different mental health disorders for countries across the globe of different years, ranging from 1990 to 2020.
+
+```{r data}
+unzip("F:/Chrome Downloads/archive (1).zip", exdir="Mental_Health", unzip="internal")
+setwd("E:/Data Analysis using R--Google, Coursera/Mental_Health")
+data <- read_csv("mental-health-disorders.csv")
+head(data)
+```
+
+## CORRELATION AMONGST DIFFERENT MENTAL HEALTH DISORDERS
+
+For my first visualization, I tried to explain the relationship between different mental health issues. A strong correlation was detected b/w Eating disorders and Anxiety as well as Schizophrenia and Eating disorders. For Bipolar there was a correlation with Eating disorders as well as Anxiety.
+
+```{r fig1, echo=FALSE}
+data%>%select(Depressive_disorders, Anxiety_disorders, Eating_disorders, Schizophrenia, Bipolar_disorder)%>% 
+cor(use="complete.obs")%>%
+ggcorrplot(type="lower",title="Correlation amongst mental health disorders", colors=c("pink","white", "magenta"))
+```
+
+## LINEAR RELATION OF ALCOHOL USAGE AND DRUGS
+
+For this visual, I selected alcohol usage and drug usage disorders for the year 2018 across th globe and checked their relationship using linear model. There turned out to be a weak linear relationship meaning that patients who suffer from alcohol usage may also develop drug abuse and related disorders. I presented the data using interactive plotly widget, so that the audience can interact and evaulate data.
+
+```{r fig2, echo=FALSE}
+p<-data%>%select(Year, Alcohol_use_disorders, Drug_use_disorders)%>%
+  filter(Year==2018)%>%ggplot(aes(x=Alcohol_use_disorders,y=Drug_use_disorders))+geom_point()+geom_smooth(method="lm")+labs(x="Alcohol use disorders", y="Drug use disorders", title="Relationship b/w Substance Abuse Disorders")+
+  annotate("text",x=2.5,y=3,label="Weak linear relationship, as one variable increases other increases too",color="blue")+
+  theme_classic()
+ggplotly(p)
+
+```
+
+## TOP MENTAL HEALTH DISORDER ACROSS THE GLOBE
+
+Here, I aim to visualize which mental health issue ranks on top across the globe. According to the available data Anxiety stood at first place in all years. Depression came in second place. I presented the data in the form of a bar graph. The data also revealed that eating disorders are not as prevalent.
+
+```{r fig3, echo=FALSE}
+data %>%
+  select(Year, Depressive_disorders, Anxiety_disorders, Eating_disorders, Drug_use_disorders, Alcohol_use_disorders, Schizophrenia, Bipolar_disorder) %>%
+  group_by(Year) %>%
+  summarise(
+    Depression = mean(Depressive_disorders),
+    Anxiety = mean(Anxiety_disorders),
+    Eating = mean(Eating_disorders),
+    Drugs = mean(Drug_use_disorders),
+    Alcohol = mean(Alcohol_use_disorders), 
+    Schizophrenia= mean(Schizophrenia),
+    Bipolar=mean(Bipolar_disorder)
+  ) %>%
+  pivot_longer(cols=-Year, names_to = "Disorder", values_to = "Mean") %>% 
+  ggplot(aes(x = reorder(Disorder, Mean), y = Mean, fill = Disorder)) +
+  geom_bar(stat = "identity")+ 
+  labs(
+    x = "Disorder",
+    y = "Mean Value",
+    title = "Disorders Mean (Percent) across the globe",
+    caption= "*For all years Anxiety stood at top and all the other disorders had the same ranking") +
+  theme_linedraw()
+```
+
+## SCHIZOPHRENIA PREVALENCE IN THREE MAJOR CONTINENTS
+
+Now, I evaluated schizophrenia prevalence in three different continents by sub setting the data and filtering for the latest year. I also sampled data for 25 countries. The animated dumbbell graph shows that schizophrenia is present mostly is North America with USA taking the lead, Asia shortly followed it and finally Europe.
+
+```{r fig4, echo=FALSE}
+asian<-data %>%
+  select(Year, Country, Code, Schizophrenia, Bipolar_disorder, Eating_disorders, Anxiety_disorders) %>%
+  filter(Code %in% c("PAK", "BGD", "AFG", "LKA", "IND", "BTN", "NPL", "MDV", "MYS", "IDN", "CHN", "THA"))
+asian$continent<-"Asia"
+north_america <-data%>%
+  select(Year, Country, Code, Schizophrenia, Bipolar_disorder, Eating_disorders, Anxiety_disorders) %>%
+  filter(Code %in% c("USA", "CAN", "GRL","NIC", "HND","CUB","GTM", "PAN"))
+north_america$continent<-"North America"
+europe<-data%>%
+  select(Year, Country, Code, Schizophrenia, Bipolar_disorder, Eating_disorders, Anxiety_disorders) %>%
+  filter(Code %in% c("UKR","GBR", "FRA", "SWE", "NOR", "DEU", "FIN","POL","ITA"))
+europe$continent<-"Europe"
+
+Continents<-rbind(asian, north_america, europe)
+
+data1 <- Continents %>% filter(Year == 2019)
+countries <- sample_n(data1, 25)
+
+ggplot(countries, aes(x = Schizophrenia, y = reorder(Country, Schizophrenia), color = continent)) +
+  geom_point(size = 3) +
+  geom_segment(aes(x = Schizophrenia, xend = Schizophrenia, y = 0, yend = Country)) +
+  theme(
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor.x = element_blank(),
+    panel.grid.major.y = element_blank()
+  ) +
+  labs(x = "Schizophrenia in different continents", y = "")+transition_states(continent)
+
+```
+
+## TREND OF DEPRESSIVE DISORDERS IN SOUTH ASIA
+
+I plotted a line graph to show the trend of depression in South Asian Countries. For countries like Afghanistan, Pakistan the trend remained constant.But for Maldives and Sri lanka it shows a decline.There were some countries like Bhutan and Nepal where there was a certain increase in trend then a sudden decline.
+
+```{r fig5, echo=FALSE}
+data %>%
+  select(Year, Code, Country, Depressive_disorders) %>%
+  filter(Code %in% c("PAK", "BGD", "AFG", "LKA", "IND", "BTN", "NPL", "MDV"))%>%
+
+# Create a single line plot with different colors for each country
+  ggplot(aes(x = Year, y = Depressive_disorders, color = Country, group=Country, linetype=Country))+geom_line(size=1)+labs(x = "Year", y = "Depressive Disorders (Percent)",title="Depressive Disorders trend over the years for South Asian Countries") + theme_minimal()
+```
+
+## ANXIETY OVER TIME FOR THREE MAJOR CONTINENTS
+
+As anxiety stood at top most position, I tried to visualize it over time for three different continents using an interactive point plot which shows the gradual increase or decrease in it.
+
+```{r fig6, echo=FALSE}
+ggplotly(
+  ggplot(Continents,aes(x=Code,y=Anxiety_disorders,
+                 color=continent,
+                 frame=Year,
+                 ids=Country))+#####adds the object constancy
+    geom_point()+
+    labs(x="Country",y="Anxiety", title="Prevalence of Anxiety over time in different continents")+theme(axis.text.x = element_text(angle=90, hjust=1))
+)
+```
+
+## EATING DISORDERS IN MAJOR CONTINENTS
+
+Eating disorders rarely prevailed in Asia according to the box plot which shows a smaller distribution of data. For North America the data was distributed at a larger scale but the mean was of smaller value. Lastly, eating disorders were most prevalent in Europe with a lot of outliers meaning that for some countries in Europe there is not a huge percentage of eating disorders.
+
+```{r fig7, echo=FALSE}
+my_anim<- ggplot(Continents, aes(x=factor(continent), y=Eating_disorders)) +
+  geom_boxplot() +labs(x="Continents", y="Eating Disorder", title="Prevalence of eating disorders in different continents")+ 
+  theme_minimal()+
+# Here comes the gganimate code
+transition_states(factor(continent))
+
+my_anim+enter_grow()+exit_shrink()
+```
+
+## DRUG USAGE DISORDERS ACROSS THE GLOBE
+
+For my final visual, I plotted geospatial data by joining my dataset with the already available world data in R library maps as my dataset lacked such information. I tried to visualize in which countries drug usage is on rise, hence increasing drug usage disroders.
+```{r fig8, echo=FALSE}
+world<-map_data("world")
+my_data<-data%>%filter(Year==2019)
+world_map<-inner_join(my_data, world, by=c("Country"="region"), relationship="many-to-many")
+ggplot(data = world_map, aes(x = long, y = lat, group = group, fill=Drug_use_disorders)) +
+  geom_polygon(color = "black") + 
+  labs(
+    x = "Longitude",
+    y = "Latitude",
+    title = "Drug Usage across the globe",
+    caption= "Data for the year 2019"
+  ) +
+  theme_minimal()+
+  scale_fill_distiller(palette = "Spectral")
+```
+
+## FURTHER DATA EXPLORATION
+
+The dataset can be subsetted into further continents to better visualize mental health disorders. More compelling graphs can increase the awareness of mental health issues across the globe. A shiny or flexdashboard can allow more user-friendly interaction with data. 
+For this project this was it, I hope I have properly conveyed my message and increased some awareness about this topic, due to the time limitations and scope of the project I was unable to create more figures. 
